@@ -21,8 +21,8 @@ const Popularproduct = sequelize.define('tbl_popularproduct', {
   }
 }, {timestamps: false, tableName: 'tbl_popularproduct'});
 
-Popularproduct.associate = function(models) {
-};
+// Popularproduct.associate = function(models) {
+// };
 
  module.exports = Popularproduct
 

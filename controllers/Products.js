@@ -2,25 +2,48 @@
 const product_model = require('../models/product.js'),
     favoriteproduct_model = require('../models/favoriteproduct.js'),
     popularproduct_model = require('../models/popularproduct.js'),
-    helpers = require('../config/helpers')
+    helpers = require('../config/helpers'),
+    Op = require('../config/config').op,
+    number_products_pagination = 15
 
 async function searchProduct(req, res) 
 {
-    var key = req.params.key
+    var key = req.params.key,
+        from = req.query.from,
+        //to = req.query.to,
+        new_results = []
     key = key.toLowerCase()
     return new Promise(async(resolve) => {
-        var result = await (product_model.findAll({
-            order: [
-            ['prod_price', 'ASC']
-        ]})),
-            new_results = []
-        for (var i in result) {
-            var name = result[i].prod_name.toLowerCase()
-            if (name.includes(key)) {
-                new_results.push(result[i])
-            }
+        if (from != undefined /*&& to != undefined*/) {
+            var result = await (product_model.findAll({
+                offset: from,
+                limit: number_products_pagination,
+                where:{
+                    prod_name: {[Op.iLike]: '%' + key + '%'}
+                },
+                order: [
+                ['prod_price', 'ASC']
+            ]}))
+            var result_all = await (product_model.findAll({
+                    where:{
+                        prod_name: {[Op.iLike]: '%' + key + '%'}
+                    },
+                    order: [
+                    ['prod_price', 'ASC']
+                ]})),
+                new_results = result,
+                count_prod = result_all.length
+        } else {
+            var result = await (product_model.findAll({
+                where:{
+                    prod_name: {[Op.iLike]: '%' + key + '%'}
+                },
+                order: [
+                ['prod_price', 'ASC']
+            ]})),
+                new_results = result,
+                count_prod = result.length
         }
-        var count_prod = new_results.length;
         var products = []
         if (count_prod > 0) {
             var date = new Date(),
@@ -69,7 +92,10 @@ async function searchProduct(req, res)
                 products[i].attribute = new_results[i].prod_attribute
 
             }
-            resolve(products)
+            var result = {}
+            result.products = products
+            result.count = count_prod
+            resolve(result)
         } else {
             resolve('No hay ningún producto para mostrar')
         }
@@ -79,11 +105,13 @@ async function searchProduct(req, res)
 async function getTopSearches(req, res) 
 {
     return new Promise(async (resolve) => {
-        var limit_searches = 7,
+        var result = [],
             new_results = [],
-            result = await (popularproduct_model.findAll({
+            limit_searches = 7
+
+        result = await (popularproduct_model.findAll({
             order: [
-            ['popr_count', 'DESC']
+                ['popr_count', 'DESC']
         ]}))
         if (result.length > limit_searches) {
             for (var i = 0; i < limit_searches; i++) {
@@ -105,6 +133,8 @@ async function filterBy(req, res)
             brand = req.query.marca,
             measures = req.query.medidas,
             city = req.query.ciudad,
+            from = req.query.from,
+            //to = req.query.to,
             new_results = []
         var result = await (product_model.findAll({
             order: [
@@ -183,8 +213,18 @@ async function filterBy(req, res)
             if (new_results.length == 0) {
                 new_results = result
             }
+
             new_results = helpers.removeDuplicates(new_results)
-            resolve(new_results)
+            var count_prod = new_results.length
+            console.log(from, number_products_pagination, count_prod)
+            if (from != undefined/*&& to != undefined*/) {
+                new_results = new_results.slice(from)
+                new_results = new_results.slice(0, number_products_pagination)
+            }
+            var result = {}
+            result.products = new_results
+            result.count = count_prod
+            resolve(result)
         } else {
             resolve('No hay ningún producto para mostrar')
         }
